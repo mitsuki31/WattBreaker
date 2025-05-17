@@ -157,8 +157,8 @@ export function suggestMCBSize(wattage: number, voltage: number, options?: MCBSi
     throw new Error("Wattage and voltage must be positive numbers.");
   }
 
-  // Calculate the current and optionally multiply by 3 if use 3-phase system
-  const currentRequired = (isThreePhase ? 3 : 1) * wattage / voltage;
+  // Calculate the current and optionally multiply by √3 if use 3-phase system
+  const currentRequired = (isThreePhase ? Math.sqrt(3) : 1) * wattage / voltage;
 
   const ratings = customRatings ?? MCB_RATING_PRESETS[standard];
   // Sort ascending the MCB ratings
