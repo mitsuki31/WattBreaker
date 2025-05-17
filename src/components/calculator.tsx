@@ -79,11 +79,20 @@ export function Calculator() {
     );
 
     setResult(power);
-    setSuggestedMCBSize(suggestMCBSize(
-      power,
-      Number(voltage),
-      { isThreePhase, standard: mcbStandard }
-    ));
+    try {
+      setSuggestedMCBSize(suggestMCBSize(
+        power,
+        Number(voltage),
+        { isThreePhase, standard: mcbStandard }
+      ));
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        const lastMCBSize = MCB_RATING_PRESETS[mcbStandard][MCB_RATING_PRESETS[mcbStandard].length - 1];
+        setSuggestedMCBSize(lastMCBSize);
+        setMessage({ type: "error", text: e.message });
+        return;
+      }
+    }
 
     // Determine MCB size label (standard or custom)
     const mcbSizeLabel = standardMcb && standardMcb !== "custom" ? `${standardMcb}A` : `${mcbSize}A`;
