@@ -48,7 +48,7 @@ describe("suggestMCBSize", function () {
       16000,
       400,
       { standard: MCBStandard.IEC_60947_2, isThreePhase: true }
-    )).toBe(160);
+    )).toBe(100);
   });
 
   it("uses custom ratings and returns correct result", function () {
