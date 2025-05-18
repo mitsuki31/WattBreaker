@@ -36,6 +36,9 @@ jobs:
   build:
     concurrency: vercel-ci/${{ github.ref_name }}
     runs-on: ${{ inputs.os || 'Windows' }}-latest
+    env:
+      VERCEL_ENV: production
+      VERCEL_TARGET_ENV: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,7 +50,7 @@ jobs:
       - name: Setup Vercel CLI
         run: npm install -g vercel
       - name: Pull Vercel project settings
-        run: vercel pull --yes --environment=production --token ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --token ${{ secrets.VERCEL_TOKEN }}
       - name: Install dependencies
         run: npm ci
       - name: Build project
