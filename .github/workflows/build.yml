@@ -8,6 +8,15 @@ on:
         required: true
         default: true
         type: boolean
+      os:
+        description: Operating System
+        required: true
+        default: Ubuntu
+        type: choice
+        options:
+          - Ubuntu
+          - Windows
+          - macOS
 
   push:
     branches: [master]
@@ -26,7 +35,7 @@ permissions:
 jobs:
   build:
     concurrency: vercel-ci/${{ github.ref_name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.os || 'Windows' }}-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
