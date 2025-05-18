@@ -43,5 +43,8 @@
     "ts-jest": "^29.3.2",
     "tw-animate-css": "^1.2.9",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20.x"
   }
 }
