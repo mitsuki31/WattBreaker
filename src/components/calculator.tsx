@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useMemo } from "react"
 import { InfoIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,7 @@ import {
 } from "@/lib/core/mcbCalc"
 
 export function Calculator() {
+  // States
   const [voltage, setVoltage] = useState<number | "">("");
   const [mcbSize, setMcbSize] = useState<number | "">("");
   const [standardMcb, setStandardMcb] = useState<string>("");
@@ -32,32 +33,34 @@ export function Calculator() {
   const [suggestedMCBSize, setSuggestedMCBSize] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: "info" | "error"; text: string } | null>(null);
 
+  // Ref for the result section to scroll into view when the calculation is done
   const resultRef = useRef<HTMLDivElement>(null);
 
-  // Generate MCB size options based on the selected standard
-  const getMcbSizeOptions = () => {
-    const options = [{ value: "custom", label: "Custom" }];
+  // Memoized options for MCB size selection based on the selected MCB standard
+  const mcbSizeOptions = useMemo(() => {
+    const ratings = MCB_RATING_PRESETS[mcbStandard] ?? [];
+    return [
+      { value: "custom", label: "Custom" },
+      ...ratings.map(r => ({ value: r.toString(), label: `${r}A` })),
+    ];
+  }, [mcbStandard]);
 
-    MCB_RATING_PRESETS[mcbStandard].forEach((rating) => {
-      options.push({ value: rating.toString(), label: `${rating}A` });
-    });
-
-    return options;
-  }
-
-  const calcPower = () => {
+  // Function to handle MCB size selection
+  const performCalculation = () => {
     // Determine which MCB size to use (standard or custom)
-    const effectiveMcbSize = standardMcb && standardMcb !== "custom" ? Number(standardMcb) : mcbSize;
+    const effectiveMcbSize = standardMcb && standardMcb !== "custom" ? standardMcb : mcbSize;
+    const V = Number(voltage);
+    const I = Number(effectiveMcbSize);
 
     // Check if inputs are empty
-    if (voltage === "" || (effectiveMcbSize === "" && (standardMcb === "custom" || standardMcb === ""))) {
+    if (voltage === "" || effectiveMcbSize === "" || Number(effectiveMcbSize) <= 0) {
       setMessage({ type: "error", text: "Please enter voltage and select an MCB size" });
       setResult(null);
       return;
     }
 
     // Check for non-positive numbers
-    if (Number(voltage) <= 0 || Number(effectiveMcbSize) <= 0) {
+    if (V <= 0 || I <= 0) {
       setMessage({ type: "error", text: "Voltage and MCB size must be positive numbers" });
       setResult(null);
       return;
@@ -65,29 +68,21 @@ export function Calculator() {
 
     // Check power factor range
     if (powerFactor < 0 || powerFactor > 1) {
-      setMessage({ type: "error", text: "Power factor must be between 0 and 1" });
+      setMessage({ type: "error", text: "Power factor must be between range 0 and 1" });
       setResult(null);
       return;
     }
 
     // Calculate power based on phase selection
-    const power = calculatePower(
-      Number(voltage),
-      Number(effectiveMcbSize),
-      powerFactor,
-      { isThreePhase }
-    );
-
+    const power = calculatePower(V, I, powerFactor, { isThreePhase });
     setResult(power);
+  
     try {
-      setSuggestedMCBSize(suggestMCBSize(
-        power,
-        Number(voltage),
-        { isThreePhase, standard: mcbStandard }
-      ));
+      setSuggestedMCBSize(suggestMCBSize( power, V, { isThreePhase, standard: mcbStandard }));
     } catch (e: unknown) {
       if (e instanceof Error) {
-        const lastMCBSize = MCB_RATING_PRESETS[mcbStandard][MCB_RATING_PRESETS[mcbStandard].length - 1];
+        const standard = MCB_RATING_PRESETS[mcbStandard];
+        const lastMCBSize = standard[standard.length - 1];
         setSuggestedMCBSize(lastMCBSize);
         setMessage({ type: "error", text: e.message });
         return;
@@ -95,7 +90,12 @@ export function Calculator() {
     }
 
     // Determine MCB size label (standard or custom)
-    const mcbSizeLabel = standardMcb && standardMcb !== "custom" ? `${standardMcb}A` : `${mcbSize}A`;
+    const mcbSizeLabel = standardMcb && standardMcb !== "custom"
+      ? `${standardMcb}A`
+      : mcbSize !== ""
+        ? `${mcbSize}A`
+        : "Invalid MCB Size";
+
 
     // Create formula text based on phase selection
     const formulaText = isThreePhase
@@ -189,7 +189,7 @@ export function Calculator() {
                 <SelectValue placeholder="Select a standard MCB size" />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-gray-700 text-white max-h-[300px]">
-                {getMcbSizeOptions().map((size) => (
+                {mcbSizeOptions.map((size) => (
                   <SelectItem key={size.value} value={size.value}>
                     {size.label}
                   </SelectItem>
@@ -216,8 +216,9 @@ export function Calculator() {
                 if (e.target.value) setStandardMcb("custom");
               }}
               disabled={standardMcb !== "" && standardMcb !== "custom"}
-              className={`bg-gray-800 border-gray-700 text-white ${standardMcb !== "" && standardMcb !== "custom" ? "opacity-50" : ""
-                }`}
+              className={`bg-gray-800 border-gray-700 text-white ${
+                standardMcb !== "" && standardMcb !== "custom" ? "opacity-50" : ""
+              }`}
             />
           </div>
 
@@ -268,7 +269,7 @@ export function Calculator() {
             </TooltipProvider>
           </div>
 
-          <Button onClick={calcPower} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+          <Button onClick={performCalculation} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
             Calculate Power
           </Button>
 
