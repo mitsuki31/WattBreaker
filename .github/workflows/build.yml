@@ -37,7 +37,6 @@ jobs:
     concurrency: vercel-ci/${{ github.ref_name }}
     runs-on: ${{ inputs.os || 'Windows' }}-latest
     env:
-      NODE_ENV: production
       VERCEL_ENV: production
       VERCEL_TARGET_ENV: production
     steps:
@@ -51,11 +50,9 @@ jobs:
       - name: Setup Vercel CLI
         run: npm install -g vercel
       - name: Pull Vercel project settings
-        run: vercel pull --yes --token ${{ secrets.VERCEL_TOKEN }}
-      - name: Install dependencies
-        run: npm ci
+        run: vercel pull --token ${{ secrets.VERCEL_TOKEN }} --yes
       - name: Build project
-        run: vercel build --prod --target ${{ env.VERCEL_TARGET_ENV}} --token ${{ secrets.VERCEL_TOKEN }} --yes
+        run: vercel build --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
       - name: Run tests
         run: npm test
       - name: Deploy to Vercel
