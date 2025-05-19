@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       deploy:
-        description: Deploy to Vercel as production build
+        description: Deploy to Vercel
         required: true
         default: true
         type: boolean
       os:
-        description: Operating System
+        description: Operating system to build on
         required: true
-        default: Ubuntu
+        default: Windows
         type: choice
         options:
           - Ubuntu
@@ -19,7 +19,7 @@ on:
           - macOS
 
   push:
-    branches: [master]
+    branches: [master, preview]
     paths:
       - 'src/**'
       - 'public/**'
@@ -37,24 +37,39 @@ jobs:
     concurrency: vercel-ci/${{ github.ref_name }}
     runs-on: ${{ inputs.os || 'Windows' }}-latest
     env:
-      VERCEL_ENV: production
-      VERCEL_TARGET_ENV: production
+      NODE_VERSION: 22.x
+      VERCEL_ENV: ${{ (github.event_name == 'push' && github.ref_name == 'master') && 'production' || 'preview' }}
+      VERCEL_TARGET_ENV: ${{ (github.event_name == 'push' && github.ref_name == 'master') && 'production' || 'preview' }}
+      PROD: ${{ (github.event_name == 'push' && github.ref_name == 'master') && '--prod' || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Node.js v22
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
+
       - name: Setup Vercel CLI
         run: npm install -g vercel
       - name: Pull Vercel project settings
         run: vercel pull --token ${{ secrets.VERCEL_TOKEN }} --yes
+
+      - name: Cache npm dependencies
+        id: cache-npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
+            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
+
       - name: Build project
-        run: vercel build --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        run: vercel build ${{ env.PROD }} --token ${{ secrets.VERCEL_TOKEN }} --yes
+
       - name: Run tests
         run: npm test
       - name: Deploy to Vercel
         if: inputs.deploy == true
-        run: vercel deploy --prebuilt --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        run: vercel deploy --prebuilt ${{ env.PROD }} --token ${{ secrets.VERCEL_TOKEN }} --yes
