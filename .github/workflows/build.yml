@@ -48,6 +48,7 @@ jobs:
       VERCEL_PREVIEW_DOMAIN: wattbreaker-preview.vercel.app
       PROD: ${{ (github.event_name == 'push' && github.ref_name == 'master') && '--prod' || '' }}
       DEBUG: ${{ inputs.debug == true && '--debug' || '' }}
+      DEPLOY: ${{ ((github.event_name == 'workflow_dispatch' && inputs.deploy == true) || github.event_name == 'push') && 'true' || 'false' }}
 
     steps:
       - name: Checkout
@@ -82,7 +83,7 @@ jobs:
         run: npm test
 
       - name: Deploy to Vercel
-        if: inputs.deploy == true
+        if: env.DEPLOY == 'true'
         run: |
           vercel deploy --prebuilt ${{ env.DEBUG }} ${{ env.PROD }} --token ${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
           echo "::notice title='Deployment URL'::$(cat deployment-url.txt)"
