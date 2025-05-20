@@ -43,11 +43,11 @@ jobs:
     runs-on: ${{ inputs.os || 'Windows' }}-latest
     env:
       NODE_VERSION: 22.x
-      VERCEL_ENV: ${{ (github.event_name == 'push' && github.ref_name == 'master') && 'production' || 'preview' }}
-      VERCEL_TARGET_ENV: ${{ (github.event_name == 'push' && github.ref_name == 'master') && 'production' || 'preview' }}
+      VERCEL_ENV: ${{ (github.ref_name == 'master') && 'production' || 'preview' }}
+      VERCEL_TARGET_ENV: ${{ (github.ref_name == 'master') && 'production' || 'preview' }}
       VERCEL_PREVIEW_DOMAIN: wattbreaker-preview.vercel.app
-      PROD: ${{ (github.event_name == 'push' && github.ref_name == 'master') && '--prod' || '' }}
-      DEBUG: ${{ inputs.debug == true && '--debug' || '' }}
+      PROD: ${{ (github.ref_name == 'master') && '--prod' || '' }}
+      DEBUG: ${{ (inputs.debug == true || github.event_name == 'push') && '--debug' || '' }}
       DEPLOY: ${{ ((github.event_name == 'workflow_dispatch' && inputs.deploy == true) || github.event_name == 'push') && 'true' || 'false' }}
 
     steps:
@@ -66,16 +66,6 @@ jobs:
       - name: Pull Vercel project settings
         run: vercel pull ${{ env.DEBUG }} --token ${{ secrets.VERCEL_TOKEN }} --yes
 
-      - name: Cache npm dependencies
-        id: cache-npm
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
-            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
-
       - name: Build project
         run: vercel build ${{ env.DEBUG }} ${{ env.PROD }} --token ${{ secrets.VERCEL_TOKEN }} --yes
 
@@ -85,8 +75,9 @@ jobs:
       - name: Deploy to Vercel
         if: env.DEPLOY == 'true'
         run: |
-          vercel deploy --prebuilt ${{ env.DEBUG }} ${{ env.PROD }} --token ${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
-          echo "::notice title='Deployment URL'::$(cat deployment-url.txt)"
-          [ $VERCEL_ENV = 'preview' ] && \
-            vercel alias set $(cat deployment-url.txt) ${{ env.VERCEL_PREVIEW_DOMAIN }} ${{ env.DEBUG }} --token ${{ secrets.VERCEL_TOKEN }} --yes
+          vercel deploy --prebuilt ${{ env.DEBUG }} ${{ env.PROD }} --token ${{ secrets.VERCEL_TOKEN }} --regions ${{ secrets.VERCEL_REGIONS }} --yes > deployment-url.txt
+          echo "::notice::Deployment URL: $(cat deployment-url.txt)"
+          if [ $VERCEL_ENV == 'preview' ]; then
+            vercel alias set $(cat deployment-url.txt) ${{ env.VERCEL_PREVIEW_DOMAIN }} ${{ env.DEBUG }} --token ${{ secrets.VERCEL_TOKEN }}
+          fi
         shell: bash
